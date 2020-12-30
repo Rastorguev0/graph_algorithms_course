@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="negative_cycle.cpp">
+    <ClCompile Include="shortest_paths.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
