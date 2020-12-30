@@ -1,56 +1,119 @@
 #include <iostream>
-#include <vector>
 #include <limits>
-using std::vector;
+#include <vector>
+#include <queue>
 
-const int INF = std::numeric_limits<int>::max() / 2;
+using namespace std;
+
+template<class T>
+class length {
+public:
+  length() : inf(numeric_limits<T>::max()) {
+    value_ = inf;
+  }
+  length(const T& val) : length() {
+    value_ = val;
+  }
+  bool finite() const {
+    return value_ != inf;
+  }
+  bool infinite() const {
+    return value_ == inf;
+  }
+  length& operator = (const length& other) {
+    value_ = other.value_;
+    return *this;
+  }
+  length& operator = (const T& val) {
+    value_ = val;
+    return *this;
+  }
+  bool operator > (const T& val) const {
+    return infinite() || value_ > val;
+  }
+  bool operator > (const length& other) const {
+    return other.finite() && value_ > other.value_;
+  }
+  length operator + (const T& val) {
+    length result;
+    if (finite()) {
+      result.value_ = value_ + val;
+    }
+    return result;
+  }
+  length operator + (const length& other) {
+    length result;
+    if (finite() && other.finite()) result.value_ = value_ + other.value_;
+    return result;
+  }
+
+  T value() const {
+    return value_;
+  }
+
+private:
+  const T inf;
+  T value_;
+};
+
+struct edge {
+  int from;
+  int to;
+  int cost;
+};
 
 class Graph {
 public:
-	Graph(vector<vector<int>> adj_list, vector<vector<int>> c)
-		: adj(move(adj_list)), costs(move(c)), V(adj.size()) {}
+  using list = vector<vector<int>>;
+  Graph(list adj_list, vector<edge> e)
+    : adj(move(adj_list)), edges(move(e)), V(adj.size()) {}
 
-	bool NegCycle() const {
-		vector<int> dist(V, INF);
-		dist[0] = 0;
-		bool changed = true;
-		for (int i = 0; i < V && changed; ++i) {
-			changed = false;
-			//now exploring all edges; EDGE = source -> dest
-			for (int source = 0; source < V; ++source) {
-				for (int d = 0; d < adj[source].size(); ++d) {
-					int dest = adj[source][d];
-					if (dist[dest] > dist[source] + costs[source][d]) {
-						dist[dest] = dist[source] + costs[source][d];
-						changed = true;
-					}
-				}
-			}
-		}
-		return changed;
-	}
+  bool BellmanFord(int from, vector<length<long long>>& dist) const {
+    dist[from] = 0;
+    bool changed = true;
+    for (int i = 0; i < V && changed; ++i) {
+      changed = false;
+      for (const auto& edge : edges) {
+        if (dist[edge.to] > dist[edge.from] + edge.cost) {
+          dist[edge.to] = dist[edge.from] + edge.cost;
+          changed = true;
+        }
+      }
+    }
+    return changed;
+  }
+
+  bool NegCycle() const {
+    //инициализируем расстояния 0, тк
+    // 1)нам не важны сами расстояния
+    // 2)даже если начальная вершина изолированна от
+    //цикла отрицательного веса, расстояние до вершин в цикле
+    //будет меняться
+    vector<length<long long>> dist(V, 0);
+    return BellmanFord(0, dist);
+  }
 
 private:
-	const vector<vector<int>> adj;
-	const vector<vector<int>> costs;
-	const int V;
+  const list adj;
+  const vector<edge> edges;
+  const int V;
 };
 
-bool negative_cycle(vector<vector<int>>& adj, vector<vector<int>>& cost) {
-	Graph G(move(adj), move(cost));
-	return G.NegCycle();
+void shortest_paths(vector<vector<int>>& adj, vector<vector<int>>& cost, int s, vector<long long>& distance, vector<int>& reachable, vector<int>& shortest) {
+  //write your code here
 }
 
 int main() {
-	int n, m;
-	std::cin >> n >> m;
-	vector<vector<int>> adj(n, vector<int>());
-	vector<vector<int>> cost(n, vector<int>());
-	for (int i = 0; i < m; i++) {
-		int x, y, w;
-		std::cin >> x >> y >> w;
-		adj[x - 1].push_back(y - 1);
-		cost[x - 1].push_back(w);
-	}
-	std::cout << negative_cycle(adj, cost);
+  int n, m, s;
+  cin >> n >> m;
+  vector<vector<int> > adj(n);
+  vector<edge> edges(m);
+  for (int i = 0; i < m; i++) {
+    int x, y, w;
+    cin >> x >> y >> w;
+    adj[x - 1].push_back(y - 1);
+    edges[i] = { x - 1, y - 1, w };
+  }
+  Graph G(move(adj), move(edges));
+  cout << G.NegCycle();
 }
