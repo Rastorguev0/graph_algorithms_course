@@ -1,11 +1,14 @@
 #include <algorithm>
 #include <iostream>
+#include <limits>
 #include <iomanip>
 #include <vector>
 #include <set>
 #include <numeric>
 #include <unordered_set>
 #include <cmath>
+#include <random>
+#include "profile.h"
 
 using namespace std;
 
@@ -19,8 +22,37 @@ struct edge {
   }
 };
 
+const int INF = numeric_limits<double>::max() / 2;
+
+int ExtractMin(const vector<double>& costs, vector<bool>& used) {
+  auto it = min_element(costs.begin(), costs.end());
+  int vertex = distance(costs.begin(), it);
+  used[vertex] = true;
+  return vertex;
+}
+
+double w(int x1, int y1, int x2, int y2) {
+  return sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2));
+}
+
 double minimum_distance_by_prim(const vector<int>& x, const vector<int>& y) {
   double result = 0.;
+  size_t V = x.size();
+  vector<double> costs(V);
+  vector<bool> used(V, false);
+  size_t used_counter = 0;
+  costs[0] = 0;
+  while (used_counter != V) {
+    int v = ExtractMin(costs, used);
+    used_counter++;
+    for (int n = 0; n < V; n++) {
+      double cost = w(x[v], y[v], x[n], y[n]);
+      if (!used[n] && costs[n] > cost) {
+        costs[n] = cost;
+        result += cost;
+      }
+    }
+  }
 
   return result;
 }
@@ -64,7 +96,27 @@ double minimum_distance_by_krusk(const vector<int>& x, const vector<int>& y) {
   return result;
 }
 
+void SpeedTest(int vertex_count) {
+  auto rand = default_random_engine();
+
+  vector<int> x(vertex_count), y(vertex_count);
+  for (int i = 0; i < vertex_count; i++) {
+    x[i] = rand() % 10'000;
+    y[i] = rand() % 10'000;
+  }
+  {
+    LOG_DURATION("KRUSKAL ALGORITHM");
+    double result = minimum_distance_by_krusk(x, y);
+  }
+  {
+    LOG_DURATION("PRIM ALGORITHM");
+    double result = minimum_distance_by_prim(x, y);
+  }
+}
+
 int main() {
+  SpeedTest(1000);
+  /*
   size_t n;
   cin >> n;
   vector<int> x(n), y(n);
@@ -72,4 +124,5 @@ int main() {
     cin >> x[i] >> y[i];
   }
   cout << setprecision(10) << minimum_distance_by_krusk(x, y) << endl;
+  */
 }
