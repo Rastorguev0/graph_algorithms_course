@@ -37,13 +37,14 @@ private:
 class BiDijkstra {
 public:
 	BiDijkstra(int n, Graph norm, Graph reverse)
-		: V(n), normal_(move(norm)), reversed_(move(reverse)) {
+		: V(n), normal_(move(norm)), reversed_(move(reverse)), clear_timer(Timer("Clear")), timer(Timer("Other")) {
 		visited_.assign(n, false);
 	}
 
 	Length Distance(int s, int t) const {
 		Clear();
 		Prepare(s, t);
+		GET_DURATION(timer);
 		while (!normal_.priq.empty() && !reversed_.priq.empty()) {
 			int vn = ExtractMin(GStatus::NORMAL);
 			if (!visited_[vn]) {
@@ -110,6 +111,7 @@ private:
 	}
 
 	void Clear() const {
+		GET_DURATION(clear_timer);
 		for (int v : normal_.workset) {
 			normal_.distances[v] = reversed_.distances[v] = INF;
 			visited_[v] = false;
@@ -120,12 +122,8 @@ private:
 			visited_[v] = false;
 		}
 		reversed_.workset.clear();
-		clear(normal_.priq);
-		clear(reversed_.priq);
-	}
-
-	void clear(Queue& q) const {
-		while (!q.empty()) q.pop();
+		normal_.priq = {};
+		reversed_.priq = {};
 	}
 
 private:
@@ -133,6 +131,8 @@ private:
 	const Graph normal_;
 	const Graph reversed_;
 	mutable vector<bool> visited_;
+	mutable Timer clear_timer;
+	mutable Timer timer;
 };
 
 void SpeedTest() {

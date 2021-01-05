@@ -12,6 +12,9 @@ struct Timer {
     Timer() {}
     long long time = 0;
     string msg = "";
+    ~Timer() {
+      cerr << msg << ": " << time << " ms" << endl;
+    }
 };
 
 class LogDuration {
