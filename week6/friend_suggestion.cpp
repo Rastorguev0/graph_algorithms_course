@@ -22,12 +22,14 @@ public:
 	Graph(int vertex_count) :
 		adj(vector<vector<int>>(vertex_count)),
 		cost(vector<vector<int>>(vertex_count)),
-		distances(vector<Length>(vertex_count, INF))
+		distances(vector<Length>(vertex_count, INF)),
+		visited(vector<bool>(vertex_count, false))
 	{}
 	vector<vector<int>> adj;
 	vector<vector<int>> cost;
 	friend class BiDijkstra;
 private:
+	mutable vector<bool> visited;
 	mutable vector<Length> distances;
 	mutable Queue priq;
 	mutable unordered_set<int> workset;
@@ -37,27 +39,24 @@ private:
 class BiDijkstra {
 public:
 	BiDijkstra(int n, Graph norm, Graph reverse)
-		: V(n), normal_(move(norm)), reversed_(move(reverse)), clear_timer(Timer("Clear")), timer(Timer("Other")) {
-		visited_.assign(n, false);
-	}
+		: V(n), normal_(move(norm)), reversed_(move(reverse)) {}
 
 	Length Distance(int s, int t) const {
 		Clear();
 		Prepare(s, t);
-		GET_DURATION(timer);
 		while (!normal_.priq.empty() && !reversed_.priq.empty()) {
 			int vn = ExtractMin(GStatus::NORMAL);
-			if (!visited_[vn]) {
+			if (!normal_.visited[vn]) {
 				Process(GStatus::NORMAL, vn);
-				visited_[vn] = true;
-				if (reversed_.workset.count(vn)) return ShortestDistance(vn);
+				normal_.visited[vn] = true;
+				if (reversed_.visited[vn]) return ShortestDistance(vn);
 			}
 
 			int vr = ExtractMin(GStatus::REVERSED);
-			if (!visited_[vr]) {
+			if (!reversed_.visited[vr]) {
 				Process(GStatus::REVERSED, vr);
-				visited_[vr] = true;
-				if (normal_.workset.count(vr)) return ShortestDistance(vr);
+				reversed_.visited[vr] = true;
+				if (normal_.visited[vr]) return ShortestDistance(vr);
 			}
 		}
 		return -1;
@@ -80,8 +79,7 @@ private:
 	void Process(GStatus status, int v) const {
 		auto& graph = status == GStatus::NORMAL ? normal_ : reversed_;
 		for (size_t i = 0; i < graph.adj[v].size(); ++i) {
-			if (!visited_[graph.adj[v][i]]) {
-				graph.workset.insert(graph.adj[v][i]);
+			if (!graph.visited[graph.adj[v][i]]) {
 				Relax(status, v, graph.adj[v][i], graph.cost[v][i]);
 			}
 		}
@@ -90,6 +88,7 @@ private:
 	void Relax(GStatus status, int src, int trg, Length len) const {
 		auto& graph = status == GStatus::NORMAL ? normal_ : reversed_;
 		if (graph.distances[trg] > graph.distances[src] + len) {
+			graph.workset.insert(trg);
 			graph.distances[trg] = graph.distances[src] + len;
 			graph.priq.emplace(graph.distances[trg], trg);
 		}
@@ -111,16 +110,15 @@ private:
 	}
 
 	void Clear() const {
-		GET_DURATION(clear_timer);
 		for (int v : normal_.workset) {
 			normal_.distances[v] = reversed_.distances[v] = INF;
-			visited_[v] = false;
+			normal_.visited[v] = false;
 		}
-		normal_.workset.clear();
 		for (int v : reversed_.workset) {
 			normal_.distances[v] = reversed_.distances[v] = INF;
-			visited_[v] = false;
+			reversed_.visited[v] = false;
 		}
+		normal_.workset.clear();
 		reversed_.workset.clear();
 		normal_.priq = {};
 		reversed_.priq = {};
@@ -130,9 +128,6 @@ private:
 	const int V;
 	const Graph normal_;
 	const Graph reversed_;
-	mutable vector<bool> visited_;
-	mutable Timer clear_timer;
-	mutable Timer timer;
 };
 
 void SpeedTest() {
