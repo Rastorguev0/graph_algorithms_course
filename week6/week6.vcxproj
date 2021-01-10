@@ -145,7 +145,7 @@
     <ClInclude Include="profile.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="A_star_one_directional.cpp" />
+    <ClCompile Include="dist_with_coords.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

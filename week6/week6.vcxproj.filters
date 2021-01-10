@@ -20,7 +20,7 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="A_star_one_directional.cpp">
+    <ClCompile Include="dist_with_coords.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

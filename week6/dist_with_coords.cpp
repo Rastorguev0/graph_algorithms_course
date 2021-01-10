@@ -5,14 +5,13 @@
 #include <unordered_set>
 #include <limits>
 #include <cmath>
-#include <random>
-#include "profile.h"
+#include <sstream>
 
 using namespace std;
 using Length = long long;
-using Queue = priority_queue<pair<Length, int>,
-														 vector<pair<Length, int>>,
-														 greater<pair<Length, int>>>;
+using Queue = priority_queue<pair<double, int>,
+														 vector<pair<double, int>>,
+														 greater<pair<double, int>>>;
 const Length INF = numeric_limits<Length>::max() / 4;
 class AStar;
 enum class GStatus { NORMAL, REVERSED };
@@ -21,10 +20,6 @@ struct Point {
 	int x;
 	int y;
 };
-
-Length EuristicDist(Point from, Point to) {
-	return pow((to.x - from.x), 2) + pow((to.y - from.y), 2);
-}
 
 class Graph {
 public:
@@ -51,91 +46,91 @@ public:
 		: V(n), normal_(move(norm)), reversed_(move(reverse)), coords_(move(coords)) {}
 
 	Length Distance(int s, int t) const {
-		Clear();
 		Prepare(s, t);
 		while (!normal_.priq.empty() && !reversed_.priq.empty()) {
-			int vn = ExtractMin(GStatus::NORMAL);
+			const int vn = ExtractMin(GStatus::NORMAL);
 			if (!normal_.visited[vn]) {
 				Process(GStatus::NORMAL, vn);
 				normal_.visited[vn] = true;
-				if (reversed_.visited[vn]) return ShortestDistance(vn);
+				if (reversed_.visited[vn]) return MakeDistance(vn);
 			}
 
-			int vr = ExtractMin(GStatus::REVERSED);
+			const int vr = ExtractMin(GStatus::REVERSED);
 			if (!reversed_.visited[vr]) {
 				Process(GStatus::REVERSED, vr);
 				reversed_.visited[vr] = true;
-				if (normal_.visited[vr]) return ShortestDistance(vr);
+				if (normal_.visited[vr]) return MakeDistance(vr);
 			}
 		}
 		return -1;
 	}
 
 private:
-	Length ShortestDistance(int vertex) const {
+	double Heuristic(GStatus status, int v) const {
+		const int t = status == GStatus::NORMAL ? TRG : SRC;
+		return sqrt(pow(coords_[v].x - coords_[t].x, 2) + pow(coords_[v].y - coords_[t].y, 2));
+	}
+
+	double Priority(GStatus status, int v) const {
+		const int minus = status == GStatus::NORMAL ? 1 : -1;
+		const auto& dist = status == GStatus::NORMAL ? normal_.distances : reversed_.distances;
+		return dist[v] + minus / 2 * (Heuristic(GStatus::NORMAL, v) - Heuristic(GStatus::REVERSED, v));
+	}
+
+	Length MakeDistance(int vertex) const {
 		Length best_length = normal_.distances[vertex] + reversed_.distances[vertex];
 		for (int u : normal_.workset) {
 			if (normal_.distances[u] + reversed_.distances[u] < best_length)
 				best_length = normal_.distances[u] + reversed_.distances[u];
+			normal_.distances[u] = INF;
+			normal_.visited[u] = false;
 		}
 		for (int u : reversed_.workset) {
 			if (normal_.distances[u] + reversed_.distances[u] < best_length)
 				best_length = normal_.distances[u] + reversed_.distances[u];
+			reversed_.distances[u] = INF;
+			reversed_.visited[u] = false;
 		}
+		normal_.workset.clear();
+		reversed_.workset.clear();
+		normal_.priq = {};
+		reversed_.priq = {};
 		return best_length;
 	}
 
 	void Process(GStatus status, int v) const {
 		auto& graph = status == GStatus::NORMAL ? normal_ : reversed_;
-		int goal = status == GStatus::NORMAL ? TRG : SRC;
 		for (size_t i = 0; i < graph.adj[v].size(); ++i) {
 			if (!graph.visited[graph.adj[v][i]]) {
-				Relax(status, v, graph.adj[v][i], graph.cost[v][i], goal);
+				Relax(status, v, graph.adj[v][i], graph.cost[v][i]);
 			}
 		}
 	}
 
-	void Relax(GStatus status, int src, int trg, Length len, int goal) const {
+	void Relax(GStatus status, int src, int trg, Length len) const {
 		auto& graph = status == GStatus::NORMAL ? normal_ : reversed_;
 		if (graph.distances[trg] > graph.distances[src] + len) {
 			graph.workset.insert(trg);
 			graph.distances[trg] = graph.distances[src] + len;
-			graph.priq.emplace(graph.distances[trg], trg);
+			graph.priq.emplace(Priority(status, trg), trg);
 		}
 	}
-
 	int ExtractMin(GStatus status) const {
-		auto& q = status == GStatus::NORMAL ? normal_.priq: reversed_.priq;
+		Queue& q = status == GStatus::NORMAL ? normal_.priq : reversed_.priq;
 		int vertex = q.top().second;
 		q.pop();
 		return vertex;
 	}
 
 	void Prepare(int s, int t) const {
-		SRC = s; TRG = t;
-		Length dist = EuristicDist(coords_[s], coords_[t]);
-		normal_.distances[s] = dist;
-		normal_.priq.emplace(dist, s);
-		reversed_.distances[t] = dist;
-		reversed_.priq.emplace(dist, t);
+		normal_.distances[s] = 0;
+		normal_.priq.emplace(Priority(GStatus::NORMAL, s), s);
+		reversed_.distances[t] = 0;
+		reversed_.priq.emplace(Priority(GStatus::REVERSED, t), t);
 		normal_.workset.insert(s);
 		reversed_.workset.insert(t);
-	}
-
-	void Clear() const {
-		for (int v : normal_.workset) {
-			normal_.distances[v] = reversed_.distances[v] = INF;
-			normal_.visited[v] = false;
-		}
-		for (int v : reversed_.workset) {
-			normal_.distances[v] = reversed_.distances[v] = INF;
-			reversed_.visited[v] = false;
-		}
-		normal_.workset.clear();
-		reversed_.workset.clear();
-		normal_.priq = {};
-		reversed_.priq = {};
-		SRC = TRG = 0;
+		SRC = s;
+		TRG = t;
 	}
 
 private:
@@ -147,7 +142,97 @@ private:
 	mutable int TRG = 0;
 };
 
+void Test1() {
+	stringstream in("2 1\n0 0\n0 1\n1 2 1\n4\n1 1\n2 2\n1 2\n2 1\n");
+	int n, m;
+	in >> n >> m;
+	vector<Point> vertexes(n);
+	for (int i = 0; i < n; ++i) {
+		in >> vertexes[i].x >> vertexes[i].y;
+	}
+	Graph normal(n), reversed(n);
+	for (int i = 0; i < m; ++i) {
+		int u, v, c;
+		in >> u >> v >> c;
+		normal.adj[u - 1].push_back(v - 1);
+		normal.cost[u - 1].push_back(c);
+		reversed.adj[v - 1].push_back(u - 1);
+		reversed.cost[v - 1].push_back(c);
+	}
+
+	AStar astar(n, move(normal), move(reversed), move(vertexes));
+	int t;
+	in >> t;
+	for (int i = 0; i < t; ++i) {
+		int u, v;
+		in >> u >> v;
+		cout << astar.Distance(u - 1, v - 1) << endl;
+	}
+}
+
+void Test2() {
+	stringstream in("4 4\n0 0\n0 1\n2 1\n2 0\n1 2 1\n4 1 2\n2 3 2\n1 3 6\n1\n1 3\n");
+	int n, m;
+	in >> n >> m;
+	vector<Point> vertexes(n);
+	for (int i = 0; i < n; ++i) {
+		in >> vertexes[i].x >> vertexes[i].y;
+	}
+	Graph normal(n), reversed(n);
+	for (int i = 0; i < m; ++i) {
+		int u, v, c;
+		in >> u >> v >> c;
+		normal.adj[u - 1].push_back(v - 1);
+		normal.cost[u - 1].push_back(c);
+		reversed.adj[v - 1].push_back(u - 1);
+		reversed.cost[v - 1].push_back(c);
+	}
+
+	AStar astar(n, move(normal), move(reversed), move(vertexes));
+	int t;
+	in >> t;
+	for (int i = 0; i < t; ++i) {
+		int u, v;
+		in >> u >> v;
+		cout << astar.Distance(u - 1, v - 1) << endl;
+	}
+}
+
+void Test3() {
+	stringstream in("5 10\n0 0\n10 10\n20 10\n20 5\n10 5\n1 2 0\n2 1 0\n2 3 80\n 3 2 80\n 3 4 30\n 4 3 30\n4 5 1\n5 4 1\n1 5 80\n5 1 80\n1\n1 4");
+	int n, m;
+	in >> n >> m;
+	vector<Point> vertexes(n);
+	for (int i = 0; i < n; ++i) {
+		in >> vertexes[i].x >> vertexes[i].y;
+	}
+	Graph normal(n), reversed(n);
+	for (int i = 0; i < m; ++i) {
+		int u, v, c;
+		in >> u >> v >> c;
+		normal.adj[u - 1].push_back(v - 1);
+		normal.cost[u - 1].push_back(c);
+		reversed.adj[v - 1].push_back(u - 1);
+		reversed.cost[v - 1].push_back(c);
+	}
+
+	AStar astar(n, move(normal), move(reversed), move(vertexes));	int t;
+	in >> t;
+	for (int i = 0; i < t; ++i) {
+		int u, v;
+		in >> u >> v;
+		cout << astar.Distance(u - 1, v - 1) << endl;
+	}
+}
+
+
 int main() {
+	/*
+	Test1();
+	Test2();
+	Test3();
+	return 0;
+	*/
 	int n, m;
 	cin >> n >> m;
 	vector<Point> vertexes(n);
