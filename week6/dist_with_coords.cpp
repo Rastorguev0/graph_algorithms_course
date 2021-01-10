@@ -62,6 +62,7 @@ public:
 				if (normal_.visited[vr]) return MakeDistance(vr);
 			}
 		}
+		Clear();
 		return -1;
 	}
 
@@ -131,6 +132,21 @@ private:
 		reversed_.workset.insert(t);
 		SRC = s;
 		TRG = t;
+	}
+
+	void Clear() const {
+		for (int v : normal_.workset) {
+			normal_.distances[v] = reversed_.distances[v] = INF;
+			normal_.visited[v] = false;
+		}
+		for (int v : reversed_.workset) {
+			normal_.distances[v] = reversed_.distances[v] = INF;
+			reversed_.visited[v] = false;
+		}
+		normal_.workset.clear();
+		reversed_.workset.clear();
+		normal_.priq = {};
+		reversed_.priq = {};
 	}
 
 private:
